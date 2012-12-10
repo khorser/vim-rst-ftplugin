@@ -1,0 +1,137 @@
+*ft_rst.txt* Filetype plugin for reStructuredText
+
+Author: Sergey Khorev <sergey.khorev@gmail.com>
+https://bitbucket.org/khorser/vim-rst-ftplugin
+https://github.com/khorser/vim-rst-ftplugin
+
+$HGLastChangedDate: 2012-12-10 16:10 +0400 $
+
+This is a lightweight filetype plugin for reStructuredText files.
+It features folding, navigation, and simple operations to manage sections.
+
+								     *rst-toc*
+1. Installation and Uninstallation		|rst-install|
+2. Folding					|rst-folding|
+3. Navigating Sections				|rst-navigation|
+4. Navigating References			|rst-references|
+5. Adding Sections				|rst-add|
+6. Modifying sections				|rst-modify|
+7. Customisation				|rst-customise|
+
+
+==============================================================================
+1. Installation and Uninstallation				*rst-install*
+
+The plugin only works with Vim compiled with |+folding| and |+syntax|.
+
+To install: >
+    :so ft_rst.vmb
+
+To uninstall: >
+    RmVimball ft_rst
+
+See also |add-filetype-plugin| and |vimball|
+
+If your files are not recognized as reStructuredText, you may want to add text
+below in your |modeline|: >
+    .. vim: set ft=rst:
+
+Alternatively you may set |'filetype'| option to "rst" each time you open a file.
+When activated on an empty file, the plugin will populate |modeline| above 
+on its own.
+
+==============================================================================
+2. Folding							*rst-folding*
+
+The functionality of the plugin heavily depends on |folding| enabled
+(|'foldexpr'| is utilised to continuously inspect and cache definitions of
+section decorations). As an extra bonus, folding allows you easily examine
+the structure of the document.
+
+If you prefer not to have any text folded set g:rst_fold_level or
+b:rst_fold_level variable in your |vimrc| to a substantially high value like 100.
+
+								*:RstReset*
+I tried to reach a compromise between correctness and performance so the
+plugin relies on Vim to be notified on relevant changes. Section adornment
+styles are cached internally so if you see something messed up, use :RstReset
+command to reinitialise internal plugin structures and parse text from scratch.
+
+==============================================================================
+3. Navigating Sections					*rst-navigation*
+
+The plugin overrides and enriches Vim standard navigation keys:
+
+]] - go forward to the start of the next sibling section
+
+<N>]] - search for the start of the next section which is N levels above the
+current section
+
+[[ - go backward to the start of the section. If the cursor is already at
+the start, go upwards to the next sibling section.
+
+<N>[[ - go up to the start of the parent section level N (in other words, 2[[
+will navigate to the grandparent of the current section)
+
+][ - search forward to the end of the current section or, if the cursors is
+there already, its prior sibling
+
+<N>][ - same as ][ but go to the end of the parent section which is N levels
+above the current section.
+
+[] - search backward to the end of the previous sibling
+
+<N>[] - same as [] but look for the parent N levels above
+
+==============================================================================
+4. Navigating References				*rst-references*
+
+The plugin also creates normal mode mappings to follow references (section
+names, citations, substitutions, hyperlinks)
+
+<LocalLeader>CTRL-] tries to follow a link under the cursor.
+<LocalLeader>] can be used to search for another matching target for last
+processed reference. Default value for <LocalLeader> is backslash.
+
+NOTE To avoid parsing, the plugin uses groups defined in rst |syntax|
+highliting plugin shipped with Vim.
+
+==============================================================================
+5. Adding Sections					    *rst-add*
+
+<LocalLeader>O
+<LocalLeader>o - add a sibling above/below current section
+
+<LocalLeader>A
+<LocalLeader>a - add a first/last child for the current section. If the plugin
+has not seen any adornments of this level, it invents one on its own.
+
+See also |LocalLeader|
+
+==============================================================================
+6. Modifying sections					    *rst-modify*
+
+<LocalLeader><
+<LocalLeader>> - promote/demote current section making it one level higher or
+lower
+
+==============================================================================
+7. Customisation					    *rst-customise*
+
+The behaviour of the plugin can be customised through the following global
+variables, please see ftplugin/rst.vim for details: >
+
+    g:rsttitle_marks
+
+    g:rstfolding_alltitles
+
+    g:rstfolding_rxtitle
+    g:rstfolding_rxprintable
+    g:rstfolding_rxempty
+
+    g:rstfolding_rxtext
+
+    g:rstnav_rx
+
+------------------------------------------------------------------------------
+ vim:tw=78:fo=tcq2:isk=!-~,^*,^\|,^\":ts=8:sts=4:sw=4:ft=help:norl:
