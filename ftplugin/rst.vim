@@ -1,7 +1,7 @@
 " Vim filetype plugin
 " Adds modeline for empty rst documents and implements functions for folding
 " Language:	reStructuredText
-" Last Change:	$HGLastChangedDate: 2012-12-10 16:10 +0400 $
+" Last Change:	$HGLastChangedDate$
 " Maintainer:	Sergey Khorev <sergey.khorev@gmail.com>
 
 if v:version < 703 || !has('folding') || !has('syntax')
@@ -456,23 +456,23 @@ let g:rstnav_rx = [
       \	{ 'name': 'cite/footnote',
       \	  'syntax' : ['rstCitationReference', 'rstFootnoteReference'],
       \	  'ref' : '\m^\zs\[[^\]]\+]\ze_$',
-      \	  'target' : '\m^\.\.\s\+\V\1\m\s*\zs'},
+      \	  'target' : '\m\c^\.\.\s\+\V\1\m\s*\zs'},
       \ { 'name': 'anonymous links',
       \	  'syntax' : ['rstHyperlinkReference', 'rstInterpretedTextOrHyperlinkReference'],
       \	  'ref' : '\m^\%(\w\+\|`\_p\+`\)\zs__\ze$',
-      \	  'target' : '\m^\s*\.\.\s*__:\s\+\|^\s*__\s\+'},
+      \	  'target' : '\m\c^\s*\.\.\s*__:\s\+\|^\s*__\s\+'},
       \ { 'name': 'reference to sections, explicit targets, and internal targets',
       \	  'syntax' : ['rstHyperlinkReference', 'rstInterpretedTextOrHyperlinkReference'],
       \	  'ref' : '\m^\%(\zs\S*[0-9A-Za-z]\ze\|`\zs\_p\+\ze`\)_$',
-      \	  'target' : '\m^\s*\V\1\m\s*\zs$\|^\s*\.\.\s*_\V\1\m:\s\+\zs\|_`\zs\V\1\m`'},
+      \	  'target' : '\m\c^\s*\V\1\m\s*\zs$\|^\s*\.\.\s*_\V\1\m:\s\+\zs\|_`\zs\V\1\m`'},
       \ { 'name': 'substitution',
       \	  'syntax' : ['rstSubstitutionReference'],
       \	  'ref' : '\m^|\zs\p\+\ze|_\?$',
-      \	  'target' : '\m^\s*\.\.\s*|\V\1\m|\s*\zs\|^\s*\.\.\s*_\V\1\m\s*:\s\+\zs'},
+      \	  'target' : '\m^\c\s*\.\.\s*|\V\1\m|\s*\zs\|^\s*\.\.\s*_\V\1\m\s*:\s\+\zs'},
       \ { 'name': 'substitution with anonymous reference',
       \	  'syntax' : ['rstSubstitutionReference'],
       \	  'ref' : '\m^|\zs\p\+\ze|__$',
-      \	  'target' : '\m^\s*\.\.\s*|\V\1\m|\s*\zs\|^\s*__\s\+\zs'}
+      \	  'target' : '\m\c^\s*\.\.\s*|\V\1\m|\s*\zs\|^\s*__\s\+\zs'}
       \ ]
 endif
 
