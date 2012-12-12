@@ -8,11 +8,9 @@ if v:version < 703 || !has('folding') || !has('syntax')
   finish
 endif
 
-
-if exists('b:did_ftplugin')
-  finish
+if !exists('g:rst_debug')
+  let g:rst_debug = 0
 endif
-let b:did_ftplugin = 1
 
 if !exists('g:rsttitle_marks')
   let g:rsttitle_marks = '-=*+_~.#''`"^:;,!$%&()/<>?@\{|}]['
@@ -27,15 +25,21 @@ if !exists('g:rstfolding_rxtitle')
   let g:rstfolding_rxtitle = '\V\^\['
     \ . substitute(g:rsttitle_marks, '\m]', '\\]', '') . ']\{2,\}\$'
 endif
+
 if !exists('g:rstfolding_rxprintable')
   let g:rstfolding_rxprintable = '\m\p'
 endif
+
 if !exists('g:rstfolding_rxempty')
   let g:rstfolding_rxempty = '\m^\s*$'
 endif
 
 if !exists('g:rstfolding_rxtext')
   let g:rstfolding_rxtext = '\m^\s*\(.\{-}\)\s*$'
+endif
+
+if !exists('g:rstsearch_order')
+  let g:rstsearch_order = ['syntax', 'heuristics', 'user']
 endif
 
 function! s:IsEmpty(str)
@@ -456,7 +460,7 @@ let g:rstnav_rx = [
       \	{ 'name': 'cite/footnote',
       \	  'syntax' : ['rstCitationReference', 'rstFootnoteReference'],
       \	  'ref' : '\m^\zs\[[^\]]\+]\ze_$',
-      \	  'target' : '\m\c^\.\.\s\+\V\1\m\s*\zs'},
+      \	  'target' : '\m\c^\s*\.\.\s\+\V\1\m\s*\zs'},
       \ { 'name': 'anonymous links',
       \	  'syntax' : ['rstHyperlinkReference', 'rstInterpretedTextOrHyperlinkReference'],
       \	  'ref' : '\m^\%(\w\+\|`\_p\+`\)\zs__\ze$',
@@ -464,7 +468,7 @@ let g:rstnav_rx = [
       \ { 'name': 'reference to sections, explicit targets, and internal targets',
       \	  'syntax' : ['rstHyperlinkReference', 'rstInterpretedTextOrHyperlinkReference'],
       \	  'ref' : '\m^\%(\zs\S*[0-9A-Za-z]\ze\|`\zs\_p\+\ze`\)_$',
-      \	  'target' : '\m\c^\s*\V\1\m\s*\zs$\|^\s*\.\.\s*_\V\1\m:\s\+\zs\|_`\zs\V\1\m`'},
+      \	  'target' : '\m\c^\s*\zs\V\1\m\s*$\|^\s*\.\.\s*_\V\1\m:\s\+\zs\|_`\zs\V\1\m`'},
       \ { 'name': 'substitution',
       \	  'syntax' : ['rstSubstitutionReference'],
       \	  'ref' : '\m^|\zs\p\+\ze|_\?$',
@@ -483,7 +487,8 @@ nmap <silent> <buffer> <localleader>] :call <SID>RstNextLink()<cr>
 
 let s:last_pattern = ''
 
-function! s:RstFollowLink()
+" extract reference text using syntax highlighting
+function! s:RstExtractRef()
   let line = line('.')
   let col = col('.')
   let syn = synID(line, col, 1)
@@ -498,7 +503,7 @@ function! s:RstFollowLink()
   while c2 < en && synID(line, c2, 1) == syn
     let c2 += 1
   endwhile
-  let str = getline(line)[c1 : c2-2]
+  let str = s:Trim(getline(line)[c1 : c2-2])
 
   " checking next line
   let line2 = line + 1
@@ -507,15 +512,10 @@ function! s:RstFollowLink()
 	\ && synID(line2, 1, 1) == syn
     let en = len(str2)
     let c = 1
-    let nonwhite = -1
     while c < en && synID(line2, c, 1) == syn
-      " to strip leading whitespace
-      if nonwhite == -1 && str2[c-1] != ' ' && str2[c-1] != "\t"
-        let nonwhite = c - 1
-      endif
       let c += 1
     endwhile
-    let str .= ' ' . str2[nonwhite : c-2]
+    let str .= '\s\+' . s:Trim(str2[ : c-2])
   endif
 
   " checking prev line
@@ -527,52 +527,157 @@ function! s:RstFollowLink()
     while c > 0 && synID(line2, c, 1) == syn
       let c -= 1
     endwhile
-    let nonwhite = -1
     let c1 = 0
     let en = len(str)
-    " strip leading whitespace
-    while c1 < en && nonwhite == -1
-      if str[c1] != ' ' && str[c1] != "\t"
-	let nonwhite = c1
-      endif
-      let c1 += 1
-    endwhile
-    let str = str2[c : ].' '.str[nonwhite : ]
+    let str = s:Trim(str2[c : ]) . '\s\+' . str
   endif
+  return [str, syn]
+endfunction
 
-  "echom 'string' str
-  let found = 0
-  for descr in g:rstnav_rx
-    "echom 'trying rx' descr.name
-    if index(descr.syntax, synIDattr(syn, 'name')) > -1
-      "echom 'matching {'.str.'} against {'.descr.ref.'}'
-      let pattern = matchstr(str, descr.ref)
-      "echom 'pattern:' pattern
-      if !empty(pattern)
-	let target = descr.target
-	" need to be careful with metacharacters so not using
-	" substitute() that always handles patterns as if 'magic' is set
-	while (1)
-	  let i = stridx(target, '\1')
-	  if i > 0
-	    let target = target[:i-1] . pattern . target[i+2:]
-	  else
-	    break
-	  endif
-	endwhile
-	"echom 'looking for' target
-	let pos = searchpos(target, 'ws')
-	if pos != [0, 0]
-	  let found = 1
-	  let s:last_pattern = target
-	  return
-	endif
+function! s:Trim(str)
+  return substitute(a:str, '\m^\s*\(.\{-}\)\s*$', '\1', '')
+endfunction
+
+" try to extract reference without using syntax highlighting
+function! s:RstGuessRef()
+  let line = line('.')
+  let col = col('.')
+
+  let [l2, c2, suf] = searchpos('\m\%(\(__\)\|\(_\)\)\>', 'cnWp', line+2)
+  let [l2_, c2_] = searchpos('\m|', 'cnW', line+2)
+  if l2 && (!l2_ || l2 < l2_ || l2 == l2_ && c2 <= c2_)
+    return s:Underlined(l2, c2, suf)
+  elseif l2_
+    return s:Substitution(l2_, c2_)
+  else
+    return '' " not a reference
+  endif
+endfunction
+
+function! s:Underlined(l2, c2, suf)
+  if a:c2 > 1
+    let str = getline(a:l2)
+    let delim = str[a:c2-2]
+  elseif a:l2 > 1
+    let str = getline(a:l2-1)
+    let delim = str[-1:]
+  else
+    let delim = ''
+  endif
+  let l1 = 0
+  let c1 = 0
+  if !empty(delim) && stridx('`|]', delim) > -1
+    " try to find a pair for our delimiter
+    if delim == ']'
+      let delim = '['
+    endif
+    let [l1, c1] = searchpos('\m'.delim, 'bcnW', a:l2-2)
+  endif
+  if !l1
+    return expand('<cword>') " no delimiters found
+  endif
+  let text = getline(l1, a:l2)
+  if l1 == a:l2
+    let text[0] = strpart(text[0], c1-1, a:c2 + (4-a:suf) - c1)
+  else
+    let text[0] = strpart(text[0], c1-1)
+    let text[-1] = strpart(text[-1], 0, a:c2 + (4-a:suf))
+  endif
+  call map(text, 's:Trim(v:val)')
+  return join(text, '\s\+')
+endfunction
+
+function! s:Substitution(l2, c2)
+  let [l1, c1] = searchpos('\m|', 'bcnW', a:l2-1)
+  if !l1
+    return ''
+  endif
+  let text = getline(l1, a:l2)
+  if l1 == a:l2
+    let text[0] = strpart(text[0], c1-1, a:c2-c1+1)
+  else
+    let text[0] = strpart(text[0], c1-1)
+    let text[-1] = strpart(text[-1], 0, a:c2)
+  endif
+  call map(text, 's:Trim(v:val)')
+  return join(text, '\s\+')
+endfunction!
+
+function! s:Debug(msg1, msg2)
+  if g:rst_debug
+    echom a:msg1 a:msg2
+  endif
+endfunction
+
+function! s:RstFollowLink()
+  for method in g:rstsearch_order
+    if method == 'syntax'
+      if s:Syntax()
+	return
+      endif
+    elseif method == 'heuristics'
+      if s:Guess()
+	return
+      endif
+    elseif method == 'user' && exists('*g:RstUserSearch')
+      call s:Debug ('Using user-supplied search', method)
+      if g:RstUserSearch()
+	return
       endif
     endif
   endfor
-  if !found
-    call s:WarningMsg('Pattern not found')
+  call s:WarningMsg('Pattern not found')
+endfunction
+
+function! s:Syntax()
+  let [str, syn] = s:RstExtractRef()
+  call s:Debug ('Using syntax to look for', str)
+  for descr in g:rstnav_rx
+    call s:Debug('trying rx', descr.name)
+    if index(descr.syntax, synIDattr(syn, 'name')) > -1
+      call s:Debug('matching {'.str.'}', 'against {'.descr.ref.'}')
+      if s:RstFindTarget(str, descr)
+	return 1
+      endif
+    endif
+  endfor
+endfunction
+
+function! s:Guess()
+  let str = s:RstGuessRef()
+  call s:Debug ('Using guessing to look for', str)
+  for descr in g:rstnav_rx
+    call s:Debug('trying rx', descr.name)
+    call s:Debug('matching {'.str.'}', 'against {'.descr.ref.'}')
+    if s:RstFindTarget(str, descr)
+      return 1
+    endif
+  endfor
+endfunction
+
+function! s:RstFindTarget(str, descr)
+  let pattern = matchstr(a:str, a:descr.ref)
+  call s:Debug('pattern:', pattern)
+  if !empty(pattern)
+    let target = a:descr.target
+    " need to be careful with metacharacters so not using
+    " substitute() that always handles patterns as if 'magic' is set
+    while (1)
+      let i = stridx(target, '\1')
+      if i > 0
+	let target = target[:i-1] . pattern . target[i+2:]
+      else
+	break
+      endif
+    endwhile
+    call s:Debug('looking for', target)
+    let pos = searchpos(target, 'ws')
+    if pos != [0, 0]
+      let s:last_pattern = target
+      return 1
+    endif
   endif
+  return 0
 endfunction
 
 function! s:RstNextLink()
@@ -585,5 +690,5 @@ finish
 
 Vimball contents:
 doc/ft_rst.txt
-ftplugin/rst.vim
+after/ftplugin/rst.vim
 " vim: set ts=8 sts=2 sw=2:
