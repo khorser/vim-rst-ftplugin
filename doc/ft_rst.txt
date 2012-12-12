@@ -1,8 +1,9 @@
 *ft_rst.txt* Filetype plugin for reStructuredText
 
 Author: Sergey Khorev <sergey.khorev@gmail.com>
-https://bitbucket.org/khorser/vim-rst-ftplugin
-https://github.com/khorser/vim-rst-ftplugin
+    http://www.vim.org/scripts/script.php?script_id=4355
+    https://bitbucket.org/khorser/vim-rst-ftplugin
+    https://github.com/khorser/vim-rst-ftplugin
 
 $HGLastChangedDate$
 
